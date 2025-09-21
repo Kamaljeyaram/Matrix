@@ -1,0 +1,139 @@
+/* Dashboard specific styles */
+
+/* Medical themed colors */
+:root {
+  --medical-primary: 59 130 246; /* blue-500 */
+  --medical-secondary: 16 185 129; /* emerald-500 */
+  --vital-healthy: 34 197 94; /* green-500 */
+  --vital-warning: 251 191 36; /* amber-400 */
+  --vital-critical: 239 68 68; /* red-500 */
+}
+
+/* Card variants */
+.medical-card {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: all 0.2s ease-in-out;
+  border-radius: 0.5rem;
+}
+
+.medical-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.vital-card {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: all 0.2s ease-in-out;
+  border-radius: 0.5rem;
+}
+
+.vital-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Pulse animation for vital cards */
+.pulse-vital {
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: hsl(var(--border));
+  }
+  50% {
+    border-color: hsl(var(--medical-primary));
+  }
+}
+
+/* Status variants */
+.status-healthy {
+  border-left: 4px solid #22c55e;
+  background-color: #f0fdf4;
+}
+
+.status-warning {
+  border-left: 4px solid #f59e0b;
+  background-color: #fffbeb;
+}
+
+.status-critical {
+  border-left: 4px solid #ef4444;
+  background-color: #fef2f2;
+}
+
+/* Vital indicator dots */
+.bg-vital-healthy {
+  background-color: #22c55e;
+}
+
+.bg-vital-warning {
+  background-color: #f59e0b;
+}
+
+.bg-vital-critical {
+  background-color: #ef4444;
+}
+
+.text-vital-critical {
+  color: #ef4444;
+}
+
+/* Medical primary colors */
+.bg-medical-primary {
+  background-color: hsl(var(--medical-primary));
+}
+
+.text-medical-primary {
+  color: hsl(var(--medical-primary));
+}
+
+.border-medical-primary {
+  border-color: hsl(var(--medical-primary));
+}
+
+.bg-medical-primary\/5 {
+  background-color: hsl(var(--medical-primary) / 0.05);
+}
+
+.bg-medical-primary\/10 {
+  background-color: hsl(var(--medical-primary) / 0.1);
+}
+
+/* Medical secondary colors */
+.text-medical-secondary {
+  color: hsl(var(--medical-secondary));
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .status-healthy {
+    background-color: rgb(5 46 22 / 0.2);
+  }
+  
+  .status-warning {
+    background-color: rgb(69 26 3 / 0.2);
+  }
+  
+  .status-critical {
+    background-color: rgb(69 10 10 / 0.2);
+  }
+}
+
+/* Loading spinner animation */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
