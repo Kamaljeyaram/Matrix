@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import TelegramService from "@/services/telegramService";
+import { sendMeetingLink, testBotConnection } from "@/services/telegramService";
 import "../styles/dashboard.css";
 import { 
   Heart, 
@@ -34,6 +34,9 @@ import {
   MessageCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAppointmentBooking } from '@/hooks/use-appointment-booking';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const PatientDashboard = () => {
   console.log("PatientDashboard component rendering...");
@@ -49,7 +52,6 @@ const PatientDashboard = () => {
     reason: ""
   });
   const [bookingStatus, setBookingStatus] = useState<"idle" | "booking" | "success" | "error">("idle");
-  const [telegramService] = useState(new TelegramService());
   const [currentMeeting, setCurrentMeeting] = useState<{meetingId: string; joinUrl: string} | null>(null);
   
   const [vitals] = useState({
@@ -100,35 +102,34 @@ const PatientDashboard = () => {
       name: "Dr. Sarah Johnson", 
       specialty: "Cardiology", 
       phone: "9025900546",
-      telegramId: "123456789" // Doctor's Telegram Chat ID
+      telegramId: "1679861448" // Doctor's Telegram Chat ID
     },
     { 
       id: "dr-michael", 
       name: "Dr. Michael Chen", 
       specialty: "Internal Medicine", 
       phone: "9025900546",
-      telegramId: "987654321" // Doctor's Telegram Chat ID
+      telegramId: "1195385235" // Doctor's Telegram Chat ID
     },
     { 
       id: "dr-emily", 
       name: "Dr. Emily Rodriguez", 
       specialty: "Dermatology", 
       phone: "9025900546",
-      telegramId: "456789123" // Doctor's Telegram Chat ID
+      telegramId: "1679861448" // Doctor's Telegram Chat ID
     },
     { 
       id: "dr-james", 
       name: "Dr. James Wilson", 
       specialty: "Neurology", 
       phone: "9025900546",
-      telegramId: "789123456" // Doctor's Telegram Chat ID
+      telegramId: "1679861448" // Doctor's Telegram Chat ID
     }
   ]);
 
-  // Generate Google Meet link
-  const generateMeetLink = () => {
-    const meetId = Math.random().toString(36).substr(2, 10);
-    return `https://meet.google.com/${meetId}`;
+  // Generate Jitsi Meet link (replacing Google Meet)
+  const generateMeetLink = (appointmentCode: string) => {
+    return `https://meet.jit.si/HealthStream-${appointmentCode}`;
   };
 
   // Generate appointment code
@@ -136,33 +137,59 @@ const PatientDashboard = () => {
     return Math.random().toString(36).substr(2, 8).toUpperCase();
   };
 
-  // Send Telegram message automatically
-  const sendTelegramMessage = async (doctorTelegramId: string, meetLink: string, appointmentCode: string, appointmentDetails: typeof bookingForm) => {
+  // Send Telegram message automatically to both doctor and patient
+  const sendTelegramMessage = async (doctorTelegramId: string, patientTelegramId: string, meetLink: string, appointmentCode: string, appointmentDetails: typeof bookingForm) => {
     try {
-      // Test Telegram connection first
-      const isConnected = await telegramService.testConnection();
-      if (!isConnected) {
-        console.log('Telegram connection failed, simulating message send');
-        // Simulate successful send for demo
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return { success: true, message: "Telegram message sent successfully (simulated)" };
+      console.log('Testing bot connection first...');
+      const botTest = await testBotConnection();
+      
+      if (!botTest.success) {
+        console.error('Bot connection failed:', botTest.message);
+        throw new Error(`Bot configuration error: ${botTest.message}`);
       }
-
-      // Send appointment notification via Telegram
-      const result = await telegramService.sendAppointmentNotification(doctorTelegramId, {
-        patientName: "John Doe",
+      
+      console.log('Bot connected successfully:', botTest.botInfo?.first_name);
+      
+      const selectedDoctor = doctors.find(doc => doc.telegramId === doctorTelegramId);
+      const doctorName = selectedDoctor?.name || "Doctor";
+      const patientName = "John Doe";
+      
+      // Send message to doctor
+      console.log('Sending appointment notification to doctor...');
+      const doctorResult = await sendMeetingLink(doctorTelegramId, appointmentCode, meetLink, {
+        patientName: patientName,
         date: appointmentDetails.date,
         time: appointmentDetails.time,
-        type: appointmentDetails.type,
-        reason: appointmentDetails.reason || "General consultation",
-        meetLink: meetLink,
-        appointmentCode: appointmentCode
+        doctorName: doctorName,
+        isForDoctor: true
+      });
+      
+      // Send confirmation message to patient
+      console.log('Sending appointment confirmation to patient...');
+      const patientResult = await sendMeetingLink(patientTelegramId, appointmentCode, meetLink, {
+        patientName: patientName,
+        date: appointmentDetails.date,
+        time: appointmentDetails.time,
+        doctorName: doctorName,
+        isForDoctor: false
       });
 
-      return result;
+      return { 
+        success: true, 
+        message: "Telegram messages sent successfully to both doctor and patient", 
+        doctorResult,
+        patientResult
+      };
     } catch (error) {
-      console.error("Failed to send Telegram message:", error);
-      return { success: false, message: "Failed to send Telegram message" };
+      console.error("Failed to send Telegram messages:", error);
+      
+      // Return specific error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return { 
+        success: false, 
+        message: `Telegram send failed: ${errorMessage}`,
+        isSimulated: false
+      };
     }
   };
 
@@ -178,11 +205,20 @@ const PatientDashboard = () => {
     try {
       const selectedDoctor = doctors.find(doc => doc.id === bookingForm.doctor);
       if (selectedDoctor) {
-        const meetLink = generateMeetLink();
         const appointmentCode = generateAppointmentCode();
+        const meetLink = generateMeetLink(appointmentCode);
         
-        // Send Telegram message to doctor
-        const messageResult = await sendTelegramMessage(selectedDoctor.telegramId, meetLink, appointmentCode, bookingForm);
+        // Patient's Telegram ID (in real app, this would come from user profile)
+        const patientTelegramId = "1679861448"; // This should be the actual patient's chat ID
+        
+        // Send Telegram messages to both doctor and patient
+        const messageResult = await sendTelegramMessage(
+          selectedDoctor.telegramId, 
+          patientTelegramId, 
+          meetLink, 
+          appointmentCode, 
+          bookingForm
+        );
         
         if (messageResult.success) {
           // Store appointment data (in real app, this would be saved to database)
@@ -192,6 +228,7 @@ const PatientDashboard = () => {
             appointmentCode,
             doctorPhone: selectedDoctor.phone,
             doctorTelegramId: selectedDoctor.telegramId,
+            patientTelegramId,
             patientName: "John Doe",
             status: "pending_confirmation"
           };
@@ -212,6 +249,8 @@ const PatientDashboard = () => {
             setIsBookingOpen(false);
           }, 3000);
         } else {
+          console.error("Telegram message failed:", messageResult.message);
+          alert(`Booking failed: ${messageResult.message}`);
           setBookingStatus("error");
           setTimeout(() => setBookingStatus("idle"), 3000);
         }
@@ -844,12 +883,12 @@ const PatientDashboard = () => {
                         ) : bookingStatus === "success" ? (
                           <>
                             <CheckCircle className="w-4 h-4 mr-2" />
-                            Booked!
+                            Booked! Check Telegram
                           </>
                         ) : bookingStatus === "error" ? (
                           <>
                             <AlertCircle className="w-4 h-4 mr-2" />
-                            Failed
+                            Try Again
                           </>
                         ) : (
                           <>
@@ -862,6 +901,34 @@ const PatientDashboard = () => {
                         Cancel
                       </Button>
                     </div>
+
+                    {/* Success Message */}
+                    {bookingStatus === "success" && (
+                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-800">
+                          <CheckCircle className="w-5 h-5" />
+                          <span className="font-semibold">Appointment Booked Successfully!</span>
+                        </div>
+                        <p className="text-green-700 text-sm mt-2">
+                          • Meeting details sent to doctor via Telegram<br />
+                          • Confirmation sent to patient via Telegram<br />
+                          • Join the meeting using Jitsi Meet at your scheduled time
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Error Message */}
+                    {bookingStatus === "error" && (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-red-800">
+                          <AlertCircle className="w-5 h-5" />
+                          <span className="font-semibold">Booking Failed</span>
+                        </div>
+                        <p className="text-red-700 text-sm mt-2">
+                          Please check your internet connection and try again.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -911,5 +978,4 @@ const PatientDashboard = () => {
   );
 };
 
-export default PatientDashboard; 
-   
+export default PatientDashboard;
